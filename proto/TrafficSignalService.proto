@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "SchoolZoneTraffic";
+
+service TrafficSignalService {
+  rpc GetCurrentSignal (SignalRequest) returns (SignalResponse); // Unary
+  rpc StreamSignalCycle (SignalRequest) returns (stream SignalResponse); // Server Streaming
+  rpc ReportTrafficEvents (stream SignalEvent) returns (SignalSummary); // Client Streaming
+  rpc AdjustSignalsLive (stream SignalRequest) returns (stream SignalResponse); // BiDi Streaming
+}
+
+message SignalRequest {
+  string intersection_id = 1;
+}
+
+message SignalResponse {
+  string status = 1;
+  int32 countdown_seconds = 2;
+}
+
+message SignalEvent {
+  string intersection_id = 1;
+  string event_type = 2;
+}
+
+message SignalSummary {
+  int32 total_events = 1;
+  string message = 2;
+}

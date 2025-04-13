@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package SchoolZoneTraffic;
+
+service SpeedLimitEnforcementService {
+  // Unary RPC
+  rpc GetSpeedStatus(SpeedRequest) returns (SpeedResponse);
+
+  // Server Streaming
+  rpc StreamSpeedUpdates(SpeedRequest) returns (stream SpeedResponse);
+
+  // Client Streaming
+  rpc SendSpeedData(stream SpeedRecord) returns (EnforcementSummary);
+
+  // Bi-Directional Streaming
+  rpc AdjustSpeedLimits(stream SpeedZoneData) returns (stream SpeedZoneUpdate);
+}
+
+message SpeedRequest {
+  string vehicle_id = 1;
+  string zone_id = 2;
+}
+
+message SpeedResponse {
+  string vehicle_id = 1;
+  int32 current_speed = 2;
+  string status = 3; // "OK", "Over Limit"
+}
+
+message SpeedRecord {
+  string vehicle_id = 1;
+  int32 speed = 2;
+  string timestamp = 3;
+}
+
+message EnforcementSummary {
+  int32 total_records = 1;
+  int32 over_limit_count = 2;
+  string message = 3;
+}
+
+message SpeedZoneData {
+  string zone_id = 1;
+  int32 new_speed_limit = 2;
+}
+
+message SpeedZoneUpdate {
+  string zone_id = 1;
+  string update_status = 2; // "Updated", "Failed"
+}
