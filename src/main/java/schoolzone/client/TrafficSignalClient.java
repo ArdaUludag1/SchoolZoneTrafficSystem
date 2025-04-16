@@ -1,13 +1,13 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package schoolzone.client;
 
-import SchoolZoneTraffic.*;
+import grpc.generated.schoolzone.*;
+import grpc.generated.schoolzone.TrafficSignalServiceGrpc.TrafficSignalServiceStub;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
+
+import java.time.LocalTime;
 
 /**
  *
@@ -16,77 +16,74 @@ import io.grpc.stub.StreamObserver;
 
 public class TrafficSignalClient {
 
-    public static void main(String[] args) throws InterruptedException {
-        ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50052)
+    private static TrafficSignalServiceStub asyncStub;
+
+    public static void main(String[] args) {
+        ManagedChannel channel = ManagedChannelBuilder
+                .forAddress("localhost", 50052)
                 .usePlaintext()
                 .build();
 
-        TrafficSignalServiceGrpc.TrafficSignalServiceBlockingStub blockingStub =
-                TrafficSignalServiceGrpc.newBlockingStub(channel);
-        TrafficSignalServiceGrpc.TrafficSignalServiceStub asyncStub =
-                TrafficSignalServiceGrpc.newStub(channel);
+        asyncStub = TrafficSignalServiceGrpc.newStub(channel);
 
-        // Unary RPC
-        SignalRequest request = SignalRequest.newBuilder().setIntersectionId("INT-101").build();
-        SignalResponse response = blockingStub.getCurrentSignal(request);
-        System.out.println("[UNARY] Signal: " + response.getStatus());
+        reportTrafficEvents(); // CLIENT STREAMING BASED ON SENSOR DATA
 
-        // Server Streaming
-        asyncStub.streamSignalCycle(request, new StreamObserver<SignalResponse>() {
-            @Override
-            public void onNext(SignalResponse res) {
-                System.out.println("[STREAM] " + res.getStatus() + " for " + res.getCountdownSeconds() + "s");
-            }
-            @Override
-            public void onError(Throwable t) {}
-            @Override
-            public void onCompleted() {
-                System.out.println("[STREAM] Done.");
-            }
-        });
+        // optional: simulate client cancellation
+        // channel.shutdownNow();
+    }
 
-        Thread.sleep(4000);
-
-        // Client Streaming
-        StreamObserver<SignalEvent> clientStream;
-        clientStream = asyncStub.reportTrafficEvents(new StreamObserver<SignalSummary>() {
+    private static void reportTrafficEvents() {
+        // Response observer to handle server's SignalSummary
+        StreamObserver<SignalSummary> responseObserver = new StreamObserver<SignalSummary>() {
             @Override
             public void onNext(SignalSummary summary) {
-                System.out.println("[CLIENT STREAM] Total events: " + summary.getTotalEvents());
+                System.out.println(LocalTime.now() + ": ? Server Summary -> Events: " +
+                        summary.getTotalEvents() + ", Highest Density Type: " + summary.getHighestDensityType());
             }
+
             @Override
-            public void onError(Throwable t) {}
+            public void onError(Throwable t) {
+                System.err.println("? Client received error: " + t.getMessage());
+            }
+
             @Override
             public void onCompleted() {
-                System.out.println("[CLIENT STREAM] Finished.");
+                System.out.println(LocalTime.now() + ": ? Stream completed.");
             }
-        });
+        };
 
-        clientStream.onNext(SignalEvent.newBuilder().setIntersectionId("INT-101").setEventType("Accident").build());
-        clientStream.onNext(SignalEvent.newBuilder().setIntersectionId("INT-102").setEventType("Heavy Traffic").build());
-        clientStream.onCompleted();
+        // Request observer to send multiple SignalEvent entries
+        StreamObserver<SignalEvent> requestObserver = asyncStub.reportTrafficEvents(responseObserver);
 
-        Thread.sleep(1000);
+        try {
+            // First event: Vehicle sensor reports 15 vehicles
+            requestObserver.onNext(SignalEvent.newBuilder()
+                    .setSensorType("vehicle")
+                    .setSensorValue(15)
+                    .build());
+            Thread.sleep(300);
 
-        // BiDi Streaming
-        StreamObserver<SignalRequest> bidi = asyncStub.adjustSignalsLive(new StreamObserver<SignalResponse>() {
-            @Override
-            public void onNext(SignalResponse res) {
-                System.out.println("[BIDI] " + res.getStatus());
-            }
-            @Override
-            public void onError(Throwable t) {}
-            @Override
-            public void onCompleted() {
-                System.out.println("[BIDI] Stream ended.");
-                channel.shutdown();
-            }
-        });
+            // Second event: Pedestrian sensor reports 12 people
+            requestObserver.onNext(SignalEvent.newBuilder()
+                    .setSensorType("pedestrian")
+                    .setSensorValue(12)
+                    .build());
+            Thread.sleep(300);
 
-        bidi.onNext(SignalRequest.newBuilder().setIntersectionId("INT-201").build());
-        Thread.sleep(500);
-        bidi.onNext(SignalRequest.newBuilder().setIntersectionId("INT-202").build());
-        Thread.sleep(500);
-        bidi.onCompleted();
+            // Third event: Bicycle sensor reports 5 bikes
+            requestObserver.onNext(SignalEvent.newBuilder()
+                    .setSensorType("bicycle")
+                    .setSensorValue(5)
+                    .build());
+            Thread.sleep(300);
+
+            // ? Complete the stream
+            requestObserver.onCompleted();
+
+        } catch (StatusRuntimeException e) {
+            System.err.println("?? Status exception: " + e.getStatus());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

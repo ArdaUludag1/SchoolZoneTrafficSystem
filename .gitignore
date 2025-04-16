@@ -1,0 +1,16 @@
+# Ignore build output
+target/
+*.class
+
+# Ignore IDE configs
+.idea/
+*.iml
+
+# Ignore logs
+*.log
+
+# macOS files
+.DS_Store
+
+# Maven wrapper
+.mvn/

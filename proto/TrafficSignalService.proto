@@ -1,30 +1,73 @@
 syntax = "proto3";
 
 option java_multiple_files = true;
-option java_package = "SchoolZoneTraffic";
+option java_package = "grpc.generated.schoolzone";
+option java_outer_classname = "SchoolZoneProto";
 
-service TrafficSignalService {
-  rpc GetCurrentSignal (SignalRequest) returns (SignalResponse); // Unary
-  rpc StreamSignalCycle (SignalRequest) returns (stream SignalResponse); // Server Streaming
-  rpc ReportTrafficEvents (stream SignalEvent) returns (SignalSummary); // Client Streaming
-  rpc AdjustSignalsLive (stream SignalRequest) returns (stream SignalResponse); // BiDi Streaming
+package SchoolZoneTraffic;
+
+// ENUM for signal types
+enum SignalStatus {
+  GREEN = 0;
+  YELLOW = 1;
+  RED = 2;
 }
 
+// ---------- Unary & Server Streaming ----------
 message SignalRequest {
-  string intersection_id = 1;
+  string location = 1;
 }
 
 message SignalResponse {
-  string status = 1;
-  int32 countdown_seconds = 2;
+  string location = 1;
+  SignalStatus status = 2;
+  int32 timeUntilGreen = 3;
+  int32 greenDuration = 4;
 }
 
+message SignalCycleRequest {
+  string location = 1;
+  int32 repeat_count = 2;
+}
+
+message SignalCycleResponse {
+  SignalStatus status = 1;
+  int32 duration_seconds = 2;
+}
+
+// ----------  Client Streaming ----------
 message SignalEvent {
-  string intersection_id = 1;
-  string event_type = 2;
+  string sensor_type = 1;    // "vehicle", "pedestrian", "bicycle"
+  int32 sensor_value = 2;    // how many detected
 }
 
 message SignalSummary {
-  int32 total_events = 1;
+  int32 total_events = 1;             // how many signal events received
+  string highest_density_type = 2;    // which sensor type had the most
+}
+
+// ---------- Bi-Directional Streaming ----------
+message SignalAdjustRequest {
+  string location = 1;
+  SignalStatus requested_status = 2;
+}
+
+message SignalAdjustResponse {
+  string location = 1;
   string message = 2;
+}
+
+// ---------- Service ----------
+service TrafficSignalService {
+  // Unary: get signal at specific zone
+  rpc GetCurrentSignal(SignalRequest) returns (SignalResponse);
+
+  // Server Streaming: stream full signal cycle
+  rpc StreamSignalCycle(SignalCycleRequest) returns (stream SignalCycleResponse);
+
+  // Client Streaming: send traffic events, get summary
+  rpc ReportTrafficEvents(stream SignalEvent) returns (SignalSummary);
+
+  // Bi-Directional Streaming: dynamically adjust traffic lights
+  rpc AdjustSignalsLive(stream SignalAdjustRequest) returns (stream SignalAdjustResponse);
 }
