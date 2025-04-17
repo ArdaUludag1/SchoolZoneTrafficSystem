@@ -1,137 +1,170 @@
-
 package schoolzone.server;
 
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
-import SchoolZoneTraffic.SpeedLimitEnforcementServiceGrpc;
-import SchoolZoneTraffic.SpeedLimitEnforcementServiceOuterClass.*;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
+import java.util.ArrayList;
+import java.util.List;
 
+import SchoolZoneTraffic.SpeedLimitEnforcementService.SpeedAck;
+import SchoolZoneTraffic.SpeedLimitEnforcementService.SpeedData;
+import SchoolZoneTraffic.SpeedEnforcementServiceGrpc;
+import SchoolZoneTraffic.SpeedLimitEnforcementService.SpeedRequest;
+import SchoolZoneTraffic.SpeedLimitEnforcementService.SpeedResponse;
 /**
  *
  * @author ardau
  */
 public class SpeedEnforcementServer {
 
+    private static int speedLimit = 50;
+    private static int totalViolations = 0;
+
+    private static final List<SpeedResponse> logEntries = new ArrayList<>();
+
     public static void main(String[] args) throws IOException, InterruptedException {
-        Server server;
-        server = ServerBuilder.forPort(50503)
+        Server server = ServerBuilder.forPort(50503)
                 .addService(new SpeedEnforcementServiceImpl())
                 .build();
 
-        System.out.println("Speed Limit Enforcement gRPC Server started on port 50503...");
+        System.out.println("Speed Enforcement gRPC Server started on port 50503...");
         server.start();
         server.awaitTermination();
     }
 
-    static class SpeedEnforcementServiceImpl extends SpeedLimitEnforcementServiceGrpc.SpeedLimitEnforcementServiceImplBase {
+    static class SpeedEnforcementServiceImpl extends SpeedEnforcementServiceGrpc.SpeedEnforcementServiceImplBase {
 
-        private final Map<String, Integer> speedLimits = new HashMap<>();
-        private final Random random = new Random();
-
-        public SpeedEnforcementServiceImpl() {
-            speedLimits.put("ZONE-1", 50);
-            speedLimits.put("ZONE-2", 30);
-            speedLimits.put("ZONE-3", 60);
-        }
-
-        // Unary RPC
         @Override
         public void getSpeedStatus(SpeedRequest request, StreamObserver<SpeedResponse> responseObserver) {
-            String vehicleId = request.getVehicleId();
-            String zoneId = request.getZoneId();
-
-            int currentSpeed = random.nextInt(81);
-            int limit = speedLimits.getOrDefault(zoneId, 50);
-            String status = (currentSpeed > limit) ? "Over Limit" : "OK";
-
-            SpeedResponse response;
-            response = SpeedResponse.newBuilder()
-                    .setVehicleId(vehicleId)
-                    .setCurrentSpeed(currentSpeed)
-                    .setStatus(status)
+            SpeedResponse response = SpeedResponse.newBuilder()
+                    .setZoneId(request.getZoneId())
+                    .setSpeedLimit(speedLimit)
+                    .setViolationDetected(false)
+                    .setTotalViolationsToday(totalViolations)
                     .build();
 
             responseObserver.onNext(response);
             responseObserver.onCompleted();
-
-            System.out.println("Checked speed for vehicle " + vehicleId + " in " + zoneId +
-                    " → Speed: " + currentSpeed + " km/h, Status: " + status);
         }
 
-        // Server Streaming RPC
         @Override
-        public void streamSpeedUpdates(SpeedRequest request, StreamObserver<SpeedResponse> responseObserver) {
-            String vehicleId = request.getVehicleId();
-            String zoneId = request.getZoneId();
+        public StreamObserver<SpeedData> sendSpeedData(StreamObserver<SpeedAck> responseObserver) {
+            return new StreamObserver<SpeedData>() {
 
-            int limit = speedLimits.getOrDefault(zoneId, 50);
-
-            System.out.println("Starting speed stream for " + vehicleId + " in " + zoneId);
-
-            try {
-                for (int i = 1; i <= 5; i++) {
-                    int currentSpeed = random.nextInt(81);
-                    String status = (currentSpeed > limit) ? "Over Limit" : "OK";
-
-                    SpeedResponse response = SpeedResponse.newBuilder()
-                            .setVehicleId(vehicleId)
-                            .setCurrentSpeed(currentSpeed)
-                            .setStatus(status)
-                            .build();
-
-                    responseObserver.onNext(response);
-                    Thread.sleep(1000);
-                }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
-            responseObserver.onCompleted();
-            System.out.println("Speed stream completed for " + vehicleId);
-        }
-
-        // Client Streaming RPC
-        @Override
-        public StreamObserver<SpeedRecord> sendSpeedData(StreamObserver<EnforcementSummary> responseObserver) {
-            return new StreamObserver<SpeedRecord>() {
-                int total = 0;
-                int overLimit = 0;
+                int entries = 0;
+                int localViolations = 0;
 
                 @Override
-                public void onNext(SpeedRecord record) {
-                    total++;
-                    int limit = speedLimits.getOrDefault("ZONE-1", 50); // default for now
-                    if (record.getSpeed() > limit) {
-                        overLimit++;
+                public void onNext(SpeedData data) {
+                    entries++;
+
+                    boolean violation = data.getCurrentSpeed() > speedLimit;
+                    if (violation) {
+                        totalViolations++;
+                        localViolations++;
                     }
-                    System.out.println("Received: " + record.getVehicleId() + " → " + record.getSpeed() + " km/h");
+
+                    SpeedResponse entry = SpeedResponse.newBuilder()
+                            .setVehicleId(data.getVehicleId())
+                            .setCurrentSpeed(data.getCurrentSpeed())
+                            .setViolationDetected(violation)
+                            .build();
+
+                    logEntries.add(entry);
                 }
 
                 @Override
                 public void onError(Throwable t) {
-                    System.err.println("Client stream error: " + t.getMessage());
+                    System.out.println("Error receiving speed data: " + t.getMessage());
                 }
 
                 @Override
                 public void onCompleted() {
-                    EnforcementSummary summary = EnforcementSummary.newBuilder()
-                            .setTotalRecords(total)
-                            .setOverLimitCount(overLimit)
-                            .setMessage("Data processed successfully")
+                    String msg = "Speed recorded. Total " + entries + " entries. " + localViolations + " violations.";
+                    SpeedAck ack = SpeedAck.newBuilder()
+                            .setSuccess(true)
+                            .setMessage(msg)
                             .build();
 
-                    responseObserver.onNext(summary);
+                    responseObserver.onNext(ack);
                     responseObserver.onCompleted();
-
-                    System.out.println("Stream completed. Records: " + total + ", Over Limit: " + overLimit);
                 }
             };
         }
+
+        @Override
+        public void streamSpeedUpdates(SpeedRequest request, StreamObserver<SpeedResponse> responseObserver) {
+            for (SpeedResponse entry : logEntries) {
+                SpeedResponse response = SpeedResponse.newBuilder()
+                        .setVehicleId(entry.getVehicleId())
+                        .setCurrentSpeed(entry.getCurrentSpeed())
+                        .setViolationDetected(entry.getViolationDetected())
+                        .build();
+
+                responseObserver.onNext(response);
+
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            responseObserver.onCompleted();
+        }
+
+        @Override
+public StreamObserver<SpeedData> adjustSpeedLimits(StreamObserver<SpeedResponse> responseObserver) {
+    return new StreamObserver<SpeedData>() {
+
+        @Override
+        public void onNext(SpeedData data) {
+            String condition = data.getZoneId().toLowerCase(); // Değiştirilen satır
+            int newLimit;
+            String reason;
+
+            switch (condition) {
+                case "heavy traffic":
+                    newLimit = 30;
+                    reason = "Speed limit updated to 30 km/h due to heavy traffic.";
+                    break;
+                case "school zone":
+                    newLimit = 30;
+                    reason = "Speed limit updated to 30 km/h due to school zone.";
+                    break;
+                case "road work":
+                    newLimit = 30;
+                    reason = "Speed limit updated to 30 km/h due to road work.";
+                    break;
+                case "clear road":
+                default:
+                    newLimit = 50;
+                    reason = "Speed limit restored to 50 km/h due to clear road.";
+                    break;
+            }
+
+            speedLimit = newLimit;
+
+            SpeedResponse response = SpeedResponse.newBuilder()
+                    .setSpeedLimit(newLimit)
+                    .setReason(reason)
+                    .build();
+
+            responseObserver.onNext(response);
+        }
+
+        @Override
+        public void onError(Throwable t) {
+            System.out.println("Error in Bi-Directional stream: " + t.getMessage());
+        }
+
+        @Override
+        public void onCompleted() {
+            responseObserver.onCompleted();
+        }
+    };
+}
+
     }
 }

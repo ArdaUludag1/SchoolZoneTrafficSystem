@@ -5,27 +5,40 @@ option java_package = "SchoolZoneTraffic";
 option java_outer_classname = "PedestrianCrossingServiceOuterClass";
 
 service PedestrianCrossingService {
-  rpc GetCrossingStatus (CrossingRequest) returns (CrossingResponse);
-  rpc StreamCrossingUpdates (CrossingRequest) returns (stream CrossingResponse);
+
+  // Unary RPC - user presses "Request to Cross" button
+  rpc GetCrossingStatus (EmptyRequest) returns (CrossingResponse);
+
+  // Client Streaming - user sends number of pedestrians waiting
   rpc SendPedestrianData (stream PedestrianData) returns (PedestrianAck);
-  rpc AdjustCrossingSignals (stream PedestrianData) returns (stream CrossingResponse);
+
+  // Server Streaming - system starts countdown
+  rpc StreamCrossingUpdates (CountdownRequest) returns (stream CrossingResponse);
+
+  // Bi-Directional Streaming - live pedestrian action monitoring and alerts
+  rpc StreamPedestrianStatus  (stream PedestrianAction) returns (stream CrossingResponse);
 }
 
-message CrossingRequest {
-  string crossing_id = 1;
+message EmptyRequest {
 }
 
-message CrossingResponse {
-  string status = 1;
-  int32 seconds_remaining = 2;
+message CountdownRequest {
 }
 
 message PedestrianData {
-  string crossing_id = 1;
-  int32 pedestrian_count = 2;
+  int32 pedestrian_count = 1;
 }
 
 message PedestrianAck {
   bool success = 1;
   string message = 2;
+}
+
+message PedestrianAction {
+  string action = 1; // Examples: "waiting", "started crossing", "crossed during red"
+}
+
+message CrossingResponse {
+  string status = 1;             // Examples: "Wait", "You may cross", "Warning"
+  int32 seconds_remaining = 2;   // Used only for countdown, set 0 otherwise
 }

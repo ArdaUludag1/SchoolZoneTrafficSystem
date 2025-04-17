@@ -4,93 +4,139 @@
  */
 package schoolzone.client;
 
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
+import io.grpc.stub.StreamObserver;
+
+import java.util.Scanner;
+
+import SchoolZoneTraffic.SpeedLimitEnforcementService.SpeedAck;
+import SchoolZoneTraffic.SpeedLimitEnforcementService.SpeedData;
+import SchoolZoneTraffic.SpeedEnforcementServiceGrpc;
+import SchoolZoneTraffic.SpeedLimitEnforcementService.SpeedRequest;
+import SchoolZoneTraffic.SpeedLimitEnforcementService.SpeedResponse;
+
 /**
  *
  * @author ardau
  */
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
-import io.grpc.stub.StreamObserver;
-import SchoolZoneTraffic.SpeedLimitEnforcementServiceGrpc;
-import SchoolZoneTraffic.SpeedLimitEnforcementServiceOuterClass.*;
+
 
 public class SpeedEnforcementClient {
+ private static final String ZONE_ID = "SchoolZoneA";
 
     public static void main(String[] args) throws InterruptedException {
         ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50503)
                 .usePlaintext()
                 .build();
 
-        // UNARY RPC
-        SpeedLimitEnforcementServiceGrpc.SpeedLimitEnforcementServiceBlockingStub stub =
-                SpeedLimitEnforcementServiceGrpc.newBlockingStub(channel);
+        SpeedEnforcementServiceGrpc.SpeedEnforcementServiceBlockingStub blockingStub =
+                SpeedEnforcementServiceGrpc.newBlockingStub(channel);
+        SpeedEnforcementServiceGrpc.SpeedEnforcementServiceStub asyncStub =
+                SpeedEnforcementServiceGrpc.newStub(channel);
 
-        SpeedRequest request = SpeedRequest.newBuilder()
-                .setVehicleId("CAR-123")
-                .setZoneId("ZONE-1")
+        Scanner scanner = new Scanner(System.in);
+
+        // Unary RPC: Get current speed status
+        System.out.println("Requesting current speed status...");
+        SpeedRequest statusRequest = SpeedRequest.newBuilder()
+                .setZoneId(ZONE_ID)
                 .build();
+        SpeedResponse statusResponse = blockingStub.getSpeedStatus(statusRequest);
+        System.out.println("Speed Limit: " + statusResponse.getSpeedLimit() + " km/h");
+        System.out.println("Violations Today: " + statusResponse.getTotalViolationsToday());
 
-        SpeedResponse response = stub.getSpeedStatus(request);
-        System.out.println("Vehicle: " + response.getVehicleId());
-        System.out.println("Current Speed: " + response.getCurrentSpeed() + " km/h");
-        System.out.println("Status: " + response.getStatus());
-
-        // SERVER STREAMING RPC
-        SpeedRequest streamRequest = SpeedRequest.newBuilder()
-                .setVehicleId("CAR-456")
-                .setZoneId("ZONE-2")
-                .build();
-
-        SpeedLimitEnforcementServiceGrpc.SpeedLimitEnforcementServiceStub asyncStub =
-                SpeedLimitEnforcementServiceGrpc.newStub(channel);
-
-        asyncStub.streamSpeedUpdates(streamRequest, new StreamObserver<SpeedResponse>() {
+        // Client Streaming: Send multiple vehicle data
+        StreamObserver<SpeedAck> ackObserver = new StreamObserver<SpeedAck>() {
             @Override
-            public void onNext(SpeedResponse res) {
-                System.out.println("[STREAM] Vehicle: " + res.getVehicleId()
-                        + ", Speed: " + res.getCurrentSpeed()
-                        + " km/h, Status: " + res.getStatus());
+            public void onNext(SpeedAck value) {
+                System.out.println("Server Response: " + value.getMessage());
             }
 
             @Override
             public void onError(Throwable t) {
-                System.err.println("Streaming Error: " + t.getMessage());
+                System.out.println("Error in client stream: " + t.getMessage());
             }
 
             @Override
             public void onCompleted() {
-                System.out.println("[STREAM] Speed stream ended.");
+                System.out.println("Speed data stream completed.\n");
             }
-        });
+        };
 
-        Thread.sleep(6000); // Wait for stream
+        StreamObserver<SpeedData> dataStream = asyncStub.sendSpeedData(ackObserver);
 
-        // CLIENT STREAMING RPC
-        StreamObserver<SpeedRecord> uploadObserver = asyncStub.sendSpeedData(new StreamObserver<EnforcementSummary>() {
+        for (int i = 0; i < 2; i++) {
+            System.out.print("\nEnter vehicle ID: ");
+            String vehicleId = scanner.nextLine();
+
+            System.out.print("Enter current speed (km/h): ");
+            int speed = Integer.parseInt(scanner.nextLine());
+
+            SpeedData data = SpeedData.newBuilder()
+                    .setVehicleId(vehicleId)
+                    .setZoneId(ZONE_ID)
+                    .setCurrentSpeed(speed)
+                    .build();
+
+            dataStream.onNext(data);
+        }
+
+        dataStream.onCompleted();
+
+        Thread.sleep(1000); // wait for stream to finish
+
+        // Server Streaming: Get live log from server
+        System.out.println("\nLive Violation Log:");
+        SpeedRequest logRequest = SpeedRequest.newBuilder()
+                .setZoneId(ZONE_ID)
+                .build();
+
+        blockingStub.streamSpeedUpdates(logRequest)
+                .forEachRemaining(response -> {
+                    String line = response.getVehicleId() + " - "
+                            + response.getCurrentSpeed() + " km/h - "
+                            + (response.getViolationDetected() ? "Fined" : "Safe");
+                    System.out.println(line);
+                });
+
+        // Bi-Directional Streaming: Adjust speed limits based on conditions
+        StreamObserver<SpeedResponse> bidiResponse = new StreamObserver<SpeedResponse>() {
             @Override
-            public void onNext(EnforcementSummary summary) {
-                System.out.println("[UPLOAD COMPLETE]");
-                System.out.println("Total Records: " + summary.getTotalRecords());
-                System.out.println("Over Limit: " + summary.getOverLimitCount());
-                System.out.println("Message: " + summary.getMessage());
+            public void onNext(SpeedResponse value) {
+                System.out.println("AI Response: " + value.getReason());
             }
 
             @Override
             public void onError(Throwable t) {
-                System.err.println("Client stream error: " + t.getMessage());
+                System.out.println("Error in BiDi stream: " + t.getMessage());
             }
 
             @Override
             public void onCompleted() {
-                channel.shutdown();
+                System.out.println("AI Monitor ended.");
             }
-        });
+        };
 
-        uploadObserver.onNext(SpeedRecord.newBuilder().setVehicleId("CAR-999").setSpeed(45).setTimestamp("10:00").build());
-        uploadObserver.onNext(SpeedRecord.newBuilder().setVehicleId("CAR-999").setSpeed(62).setTimestamp("10:01").build());
-        uploadObserver.onNext(SpeedRecord.newBuilder().setVehicleId("CAR-999").setSpeed(55).setTimestamp("10:02").build());
+        StreamObserver<SpeedData> bidiStream = asyncStub.adjustSpeedLimits(bidiResponse);
 
-        uploadObserver.onCompleted();
-        Thread.sleep(1000); // Wait for upload summary
+        String[] conditions = {"Heavy Traffic", "School Zone", "Road Work", "Clear Road"};
+
+        for (String condition : conditions) {
+            System.out.println("\nSending condition: " + condition);
+            SpeedData conditionData = SpeedData.newBuilder()
+                    .setVehicleId("monitor")
+                    .setZoneId(ZONE_ID)
+                    .setCurrentSpeed(0)
+                    .setCondition(condition)
+                    .build();
+            bidiStream.onNext(conditionData);
+            Thread.sleep(1000);
+        }
+
+        bidiStream.onCompleted();
+        Thread.sleep(1000);
+        channel.shutdown();
     }
+
 }

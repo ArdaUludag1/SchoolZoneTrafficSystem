@@ -5,17 +5,9 @@ import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
 import SchoolZoneTraffic.*;
 
-import java.io.IOException;
-
-
-/**
- *
- * @author ardau
- */
-
 public class PedestrianCrossingServer {
 
-    public static void main(String[] args) throws IOException, InterruptedException {
+    public static void main(String[] args) throws Exception {
         Server server = ServerBuilder.forPort(50502)
                 .addService(new PedestrianCrossingServiceImpl())
                 .build();
@@ -27,87 +19,114 @@ public class PedestrianCrossingServer {
 
     static class PedestrianCrossingServiceImpl extends PedestrianCrossingServiceGrpc.PedestrianCrossingServiceImplBase {
 
-        // Unary
+        // Unary RPC - handle single crossing request
         @Override
-        public void getCrossingStatus(CrossingRequest request, StreamObserver<CrossingResponse> responseObserver) {
+        public void getCrossingStatus(EmptyRequest request, StreamObserver<CrossingResponse> responseObserver) {
             CrossingResponse response = CrossingResponse.newBuilder()
-                    .setStatus("Signal: GREEN")
+                    .setStatus("Wait for green signal")
                     .setSecondsRemaining(0)
                     .build();
+
             responseObserver.onNext(response);
             responseObserver.onCompleted();
         }
 
-        // Server Streaming
+        // Client Streaming - receive multiple pedestrian data
         @Override
-        public void streamCrossingUpdates(CrossingRequest request, StreamObserver<CrossingResponse> responseObserver) {
-            try {
-                for (int i = 5; i >= 0; i--) {
-                    CrossingResponse response = CrossingResponse.newBuilder()
-                            .setStatus("WAIT")
-                            .setSecondsRemaining(i)
-                            .build();
-                    responseObserver.onNext(response);
-                    Thread.sleep(1000);
-                }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            responseObserver.onCompleted();
-        }
-
-        // Client Streaming
-        @Override
-        public StreamObserver<PedestrianData> sendPedestrianData(final StreamObserver<PedestrianAck> responseObserver) {
+        public StreamObserver<PedestrianData> sendPedestrianData(StreamObserver<PedestrianAck> responseObserver) {
             return new StreamObserver<PedestrianData>() {
-                int total = 0;
+                int totalPedestrians = 0;
 
                 @Override
                 public void onNext(PedestrianData value) {
-                    total += value.getPedestrianCount();
-                    System.out.println("Received data from " + value.getCrossingId() + ": " + value.getPedestrianCount() + " people");
+                    totalPedestrians += value.getPedestrianCount();
                 }
 
                 @Override
                 public void onError(Throwable t) {
-                    System.err.println("Client error: " + t.getMessage());
+                    System.out.println("Error receiving pedestrian data: " + t.getMessage());
                 }
 
                 @Override
                 public void onCompleted() {
-                    PedestrianAck ack = PedestrianAck.newBuilder()
+                    String message = "Signal extended for " + totalPedestrians + " people.";
+
+                    PedestrianAck response = PedestrianAck.newBuilder()
                             .setSuccess(true)
-                            .setMessage("Total pedestrians: " + total)
+                            .setMessage(message)
                             .build();
-                    responseObserver.onNext(ack);
+
+                    responseObserver.onNext(response);
                     responseObserver.onCompleted();
                 }
             };
         }
 
-        // Bi-Directional Streaming
+        // Server Streaming - send countdown from 10 to 0
         @Override
-        public StreamObserver<PedestrianData> adjustCrossingSignals(final StreamObserver<CrossingResponse> responseObserver) {
-            return new StreamObserver<PedestrianData>() {
+        public void streamCrossingUpdates(CountdownRequest request, StreamObserver<CrossingResponse> responseObserver) {
+            int countdown = 10;
+
+            for (int i = countdown; i >= 0; i--) {
+                CrossingResponse response = CrossingResponse.newBuilder()
+                        .setStatus("Countdown in progress")
+                        .setSecondsRemaining(i)
+                        .build();
+
+                responseObserver.onNext(response);
+
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            responseObserver.onCompleted();
+        }
+
+        // Bi-Directional Streaming - handle pedestrian actions and respond
+        public StreamObserver<PedestrianAction> streamPedestrianStatus(StreamObserver<CrossingResponse> responseObserver) {
+            return new StreamObserver<PedestrianAction>() {
+
                 @Override
-                public void onNext(PedestrianData value) {
-                    String status = value.getPedestrianCount() > 5 ? "EXTENDED GREEN" : "NORMAL";
+                public void onNext(PedestrianAction action) {
+                    String input = action.getAction().toLowerCase();
+                    String message;
+
+                    switch (input) {
+                        case "waiting":
+                            message = "Please wait at the signal.";
+                            break;
+                        case "started crossing":
+                            message = "You may cross now.";
+                            break;
+                        case "crossed during red":
+                            message = "Warning: You crossed during red.";
+                            break;
+                        case "crossing completed":
+                            message = "Crossing completed successfully.";
+                            break;
+                        default:
+                            message = "Unknown action.";
+                    }
+
                     CrossingResponse response = CrossingResponse.newBuilder()
-                            .setStatus(status)
-                            .setSecondsRemaining(value.getPedestrianCount() * 2)
+                            .setStatus(message)
+                            .setSecondsRemaining(0)
                             .build();
+
                     responseObserver.onNext(response);
                 }
 
                 @Override
                 public void onError(Throwable t) {
-                    System.err.println("BiDi error: " + t.getMessage());
+                    System.out.println("Error in pedestrian status stream: " + t.getMessage());
                 }
 
                 @Override
                 public void onCompleted() {
                     responseObserver.onCompleted();
-                    System.out.println("Bi-Directional stream completed.");
                 }
             };
         }
