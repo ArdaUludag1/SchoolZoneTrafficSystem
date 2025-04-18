@@ -9,6 +9,10 @@ import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 import SchoolZoneTraffic.*;
 import java.util.Iterator;
+
+import io.grpc.ClientInterceptor;
+import io.grpc.Metadata;
+import io.grpc.stub.MetadataUtils;
 /**
  *
  * @author ardau
@@ -20,9 +24,9 @@ public class PedestrianCrossingServiceGUI extends javax.swing.JFrame {
      */
     
        // gRPC connection
-    private ManagedChannel channel;
-    private PedestrianCrossingServiceGrpc.PedestrianCrossingServiceBlockingStub blockingStub;
-    private PedestrianCrossingServiceGrpc.PedestrianCrossingServiceStub asyncStub;
+    private final ManagedChannel channel;
+    private final PedestrianCrossingServiceGrpc.PedestrianCrossingServiceBlockingStub blockingStub;
+    private final PedestrianCrossingServiceGrpc.PedestrianCrossingServiceStub asyncStub;
     private StreamObserver<PedestrianAction> bidiRequestStream;
     
     public PedestrianCrossingServiceGUI() {
@@ -31,6 +35,7 @@ public class PedestrianCrossingServiceGUI extends javax.swing.JFrame {
         
         channel = ManagedChannelBuilder.forAddress("localhost", 50502)
         .usePlaintext()
+        .intercept(makeAuthHeader()) // <-- Authentication interceptor
         .build();
         blockingStub = PedestrianCrossingServiceGrpc.newBlockingStub(channel);
         asyncStub = PedestrianCrossingServiceGrpc.newStub(channel);
@@ -318,7 +323,7 @@ public class PedestrianCrossingServiceGUI extends javax.swing.JFrame {
 
     private void btnBackToMainActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnBackToMainActionPerformed
         // TODO add your handling code here:
-            new MainServiceLauncher().setVisible(true);
+            new MainServiceLauncher().setVisible(false);
             this.dispose();
     }//GEN-LAST:event_btnBackToMainActionPerformed
 
@@ -338,22 +343,16 @@ public class PedestrianCrossingServiceGUI extends javax.swing.JFrame {
                     break;
                 }
             }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(PedestrianCrossingServiceGUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(PedestrianCrossingServiceGUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(PedestrianCrossingServiceGUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) {
             java.util.logging.Logger.getLogger(PedestrianCrossingServiceGUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
         //</editor-fold>
+        
+        //</editor-fold>
 
         /* Create and display the form */
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                new PedestrianCrossingServiceGUI().setVisible(true);
-            }
+        java.awt.EventQueue.invokeLater(() -> {
+            new PedestrianCrossingServiceGUI().setVisible(true);
         });
     }
 
@@ -377,4 +376,13 @@ public class PedestrianCrossingServiceGUI extends javax.swing.JFrame {
     private javax.swing.JTextArea textAreaAIResponse;
     private javax.swing.JTextField txtPedestrianCount;
     // End of variables declaration//GEN-END:variables
+
+// Authentication helper
+private static ClientInterceptor makeAuthHeader() {
+    Metadata headers = new Metadata();
+    Metadata.Key<String> key = Metadata.Key.of("api_key", Metadata.ASCII_STRING_MARSHALLER);
+    headers.put(key, "schoolzone123");
+    return MetadataUtils.newAttachHeadersInterceptor(headers);
+}
+
 }

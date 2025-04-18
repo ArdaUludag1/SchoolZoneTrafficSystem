@@ -13,10 +13,12 @@ import SchoolZoneTraffic.SpeedLimitEnforcementService.SpeedData;
 import SchoolZoneTraffic.SpeedEnforcementServiceGrpc;
 import SchoolZoneTraffic.SpeedLimitEnforcementService.SpeedRequest;
 import SchoolZoneTraffic.SpeedLimitEnforcementService.SpeedResponse;
+
 /**
  *
  * @author ardau
  */
+
 public class SpeedEnforcementServer {
 
     private static int speedLimit = 50;
@@ -108,7 +110,6 @@ public class SpeedEnforcementServer {
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
                 }
             }
             responseObserver.onCompleted();

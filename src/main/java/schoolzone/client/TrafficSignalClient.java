@@ -29,7 +29,7 @@ public class TrafficSignalClient {
         reportTrafficEvents(); // CLIENT STREAMING BASED ON SENSOR DATA
 
         // optional: simulate client cancellation
-        // channel.shutdownNow();
+        // channel.shutdownNow(); 
     }
 
     private static void reportTrafficEvents() {
@@ -37,18 +37,18 @@ public class TrafficSignalClient {
         StreamObserver<SignalSummary> responseObserver = new StreamObserver<SignalSummary>() {
             @Override
             public void onNext(SignalSummary summary) {
-                System.out.println(LocalTime.now() + ": ? Server Summary -> Events: " +
+                System.out.println(LocalTime.now() + ":  Server Summary = Events: " +
                         summary.getTotalEvents() + ", Highest Density Type: " + summary.getHighestDensityType());
             }
 
             @Override
             public void onError(Throwable t) {
-                System.err.println("? Client received error: " + t.getMessage());
+                System.err.println("Client received error: " + t.getMessage());
             }
 
             @Override
             public void onCompleted() {
-                System.out.println(LocalTime.now() + ": ? Stream completed.");
+                System.out.println(LocalTime.now() + ":  Stream completed.");
             }
         };
 
@@ -77,13 +77,12 @@ public class TrafficSignalClient {
                     .build());
             Thread.sleep(300);
 
-            // ? Complete the stream
+            // Complete the stream
             requestObserver.onCompleted();
 
         } catch (StatusRuntimeException e) {
-            System.err.println("?? Status exception: " + e.getStatus());
-        } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println("️ Status exception: " + e.getStatus());
+        } catch (InterruptedException e) {
         }
     }
 }

@@ -24,16 +24,16 @@ The system uses Java, gRPC, and Protocol Buffers to build distributed services w
 - Simulates vehicles reporting their speed.
 - Detects and flags speeding violations.
 - Aggregates multiple reports from clients.
-- Adjusts enforcement thresholds dynamically.
+- Adjusts enforcement thresholds based on real-time road conditions (e.g., school zones, heavy traffic).
 
 ## Technologies Used
-
 - Java 1.8
 - Maven
-- gRPC
-- Protocol Buffers
+- gRPC & Protocol Buffers
+- Java Swing (GUI)
 - JmDNS (Service Discovery)
-- SLF4J (Logging)
+- Java Util Logging
+- NetBeans IDE
 
 ## Folder Structure
 
@@ -44,10 +44,10 @@ SchoolZoneTrafficSystem/
 │       │   └── schoolzone/
 │       │       ├── client/
 │       │       └── server/
-│       └── proto/
-│           ├── TrafficSignalService.proto
-│           ├── PedestrianCrossingService.proto
-│           └── SpeedLimitEnforcementService.proto
+└── proto/
+│   ├── TrafficSignalService.proto│          
+│   ├── PedestrianCrossingService.proto
+│   └── SpeedLimitEnforcementService.proto
 ├── pom.xml
 ├── .gitignore
 └── README.md

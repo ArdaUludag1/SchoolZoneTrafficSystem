@@ -19,10 +19,9 @@ import SchoolZoneTraffic.SpeedEnforcementServiceGrpc;
  */
 public class SpeedEnforcementServiceGUI extends javax.swing.JFrame {
     // gRPC setup
-private ManagedChannel channel;
-private SpeedEnforcementServiceGrpc.SpeedEnforcementServiceBlockingStub blockingStub;
-private SpeedEnforcementServiceGrpc.SpeedEnforcementServiceStub asyncStub;
-private StreamObserver<SpeedData> clientStream;
+private final ManagedChannel channel;
+private final SpeedEnforcementServiceGrpc.SpeedEnforcementServiceBlockingStub blockingStub;
+private final SpeedEnforcementServiceGrpc.SpeedEnforcementServiceStub asyncStub;
 private StreamObserver<SpeedData> bidiStream;
     
 
@@ -348,7 +347,7 @@ private StreamObserver<SpeedData> bidiStream;
 
     private void btnBackToMainActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnBackToMainActionPerformed
         // TODO add your handling code here:
-        new MainServiceLauncher().setVisible(true);
+        new MainServiceLauncher().setVisible(false);
         this.dispose();
     }//GEN-LAST:event_btnBackToMainActionPerformed
 
@@ -368,22 +367,16 @@ private StreamObserver<SpeedData> bidiStream;
                     break;
                 }
             }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(SpeedEnforcementServiceGUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(SpeedEnforcementServiceGUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(SpeedEnforcementServiceGUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) {
             java.util.logging.Logger.getLogger(SpeedEnforcementServiceGUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
+    //</editor-fold>
+    
         //</editor-fold>
 
         /* Create and display the form */
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                new SpeedEnforcementServiceGUI().setVisible(true);
-            }
+        java.awt.EventQueue.invokeLater(() -> {
+            new SpeedEnforcementServiceGUI().setVisible(true);
         });
     }
 

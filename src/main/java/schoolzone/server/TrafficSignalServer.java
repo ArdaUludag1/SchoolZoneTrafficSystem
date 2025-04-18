@@ -26,7 +26,7 @@ public class TrafficSignalServer extends TrafficSignalServiceGrpc.TrafficSignalS
         server.awaitTermination();
     }
 
-    // ? Unary RPC - Get current signal state
+    // Unary RPC - Get current signal state
     @Override
     public void getCurrentSignal(SignalRequest request, StreamObserver<SignalResponse> responseObserver) {
         String location = request.getLocation().toLowerCase();
@@ -42,15 +42,21 @@ public class TrafficSignalServer extends TrafficSignalServiceGrpc.TrafficSignalS
             return;
         }
 
-        if (location.equals("zone a")) {
-            status = SignalStatus.RED;
-            timeUntilGreen = 8;
-        } else if (location.equals("zone b")) {
-            status = SignalStatus.YELLOW;
-            timeUntilGreen = 3;
-        } else if (location.equals("zone c")) {
-            status = SignalStatus.GREEN;
-            greenDuration = 10;
+        switch (location) {
+            case "zone a":
+                status = SignalStatus.RED;
+                timeUntilGreen = 8;
+                break;
+            case "zone b":
+                status = SignalStatus.YELLOW;
+                timeUntilGreen = 3;
+                break;
+            case "zone c":
+                status = SignalStatus.GREEN;
+                greenDuration = 10;
+                break;
+            default:
+                break;
         }
 
         SignalResponse response = SignalResponse.newBuilder()
@@ -64,7 +70,7 @@ public class TrafficSignalServer extends TrafficSignalServiceGrpc.TrafficSignalS
         responseObserver.onCompleted();
     }
 
-    // ? Server Streaming RPC - Stream full signal cycle
+    // Server Streaming RPC - Stream full signal cycle
     @Override
     public void streamSignalCycle(SignalCycleRequest request, StreamObserver<SignalCycleResponse> responseObserver) {
         String location = request.getLocation().toLowerCase();
@@ -72,7 +78,7 @@ public class TrafficSignalServer extends TrafficSignalServiceGrpc.TrafficSignalS
 
         if (!location.equals("zone a") && !location.equals("zone b") && !location.equals("zone c")) {
             responseObserver.onError(Status.INVALID_ARGUMENT
-                    .withDescription("? Invalid location. Please try again with Zone A, B, or C.")
+                    .withDescription(" Invalid location. Please try again with Zone A, B, or C.")
                     .asRuntimeException());
             return;
         }
@@ -85,7 +91,7 @@ public class TrafficSignalServer extends TrafficSignalServiceGrpc.TrafficSignalS
 
         try {
             for (int i = 0; i < repeatCount; i++) {
-                Collections.shuffle(signalCycle); //  Random cycle
+                Collections.shuffle(signalCycle); // 🔁 Random cycle
 
                 for (SignalStatus status : signalCycle) {
                     int duration = getDurationForStatus(status);
@@ -106,9 +112,8 @@ public class TrafficSignalServer extends TrafficSignalServiceGrpc.TrafficSignalS
 
         } catch (InterruptedException e) {
             responseObserver.onError(Status.INTERNAL
-                    .withDescription(" Streaming interrupted.")
+                    .withDescription("️ Streaming interrupted.")
                     .asRuntimeException());
-            e.printStackTrace();
         }
     }
 
@@ -125,7 +130,7 @@ public class TrafficSignalServer extends TrafficSignalServiceGrpc.TrafficSignalS
         }
     }
 
-    // ? Client Streaming RPC - Collect sensor data
+    // Client Streaming RPC - Collect sensor data
     @Override
     public StreamObserver<SignalEvent> reportTrafficEvents(StreamObserver<SignalSummary> responseObserver) {
 

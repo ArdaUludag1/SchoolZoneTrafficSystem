@@ -5,6 +5,11 @@ import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
 import SchoolZoneTraffic.*;
 
+/**
+ *
+ * @author ardau
+ */
+
 public class PedestrianCrossingServer {
 
     public static void main(String[] args) throws Exception {
@@ -78,7 +83,6 @@ public class PedestrianCrossingServer {
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
                 }
             }
 
@@ -86,6 +90,7 @@ public class PedestrianCrossingServer {
         }
 
         // Bi-Directional Streaming - handle pedestrian actions and respond
+        @Override
         public StreamObserver<PedestrianAction> streamPedestrianStatus(StreamObserver<CrossingResponse> responseObserver) {
             return new StreamObserver<PedestrianAction>() {
 
@@ -118,12 +123,10 @@ public class PedestrianCrossingServer {
 
                     responseObserver.onNext(response);
                 }
-
                 @Override
                 public void onError(Throwable t) {
                     System.out.println("Error in pedestrian status stream: " + t.getMessage());
                 }
-
                 @Override
                 public void onCompleted() {
                     responseObserver.onCompleted();

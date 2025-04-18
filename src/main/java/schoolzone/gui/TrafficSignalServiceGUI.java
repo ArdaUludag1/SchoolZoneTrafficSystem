@@ -8,6 +8,10 @@ package schoolzone.gui;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
+import io.grpc.Metadata;
+import io.grpc.ClientInterceptor;
+import io.grpc.stub.MetadataUtils;
+
 
 // gRPC message and service classes (from your .proto)
 import grpc.generated.schoolzone.TrafficSignalServiceGrpc;
@@ -245,8 +249,9 @@ public class TrafficSignalServiceGUI extends javax.swing.JFrame {
 
     // Create a gRPC channel to the server
     ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50052)
-            .usePlaintext()
-            .build();
+        .usePlaintext()
+        .intercept(makeAuthHeader())
+        .build();
 
     // Create the blocking stub for unary call
     TrafficSignalServiceGrpc.TrafficSignalServiceBlockingStub stub =
@@ -291,8 +296,9 @@ public class TrafficSignalServiceGUI extends javax.swing.JFrame {
 
     // Create a gRPC channel
     ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50052)
-            .usePlaintext()
-            .build();
+        .usePlaintext()
+        .intercept(makeAuthHeader())
+        .build();
 
     // Create an asynchronous stub for server-streaming
     TrafficSignalServiceGrpc.TrafficSignalServiceStub stub =
@@ -349,8 +355,9 @@ switch (selectedSignal) {
 }
 
     ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50052)
-            .usePlaintext()
-            .build();
+        .usePlaintext()
+        .intercept(makeAuthHeader())
+        .build();
 
     TrafficSignalServiceGrpc.TrafficSignalServiceStub asyncStub = TrafficSignalServiceGrpc.newStub(channel);
 
@@ -381,8 +388,9 @@ switch (selectedSignal) {
 
     private void sendSensorButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_sendSensorButtonActionPerformed
         // TODO add your handling code here:
-            ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50052)
+           ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50052)
             .usePlaintext()
+            .intercept(makeAuthHeader())
             .build();
 
     // Create async stub for streaming
@@ -450,7 +458,7 @@ switch (selectedSignal) {
 
     private void btnBackToMainActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnBackToMainActionPerformed
         // TODO add your handling code here:
-        new MainServiceLauncher().setVisible(true);
+        new MainServiceLauncher().setVisible(false);
         this.dispose();
     }//GEN-LAST:event_btnBackToMainActionPerformed
 
@@ -470,22 +478,16 @@ switch (selectedSignal) {
                     break;
                 }
             }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(TrafficSignalServiceGUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(TrafficSignalServiceGUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(TrafficSignalServiceGUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) {
             java.util.logging.Logger.getLogger(TrafficSignalServiceGUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
         //</editor-fold>
+        
+        //</editor-fold>
 
         /* Create and display the form */
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                new TrafficSignalServiceGUI().setVisible(true);
-            }
+        java.awt.EventQueue.invokeLater(() -> {
+            new TrafficSignalServiceGUI().setVisible(true);
         });
     }
 
@@ -511,4 +513,13 @@ switch (selectedSignal) {
     private javax.swing.JTextField vehicleField;
     private javax.swing.JComboBox<String> zoneComboBox;
     // End of variables declaration//GEN-END:variables
+    
+    // Authentication helper
+        private static ClientInterceptor makeAuthHeader() {
+            Metadata headers = new Metadata();
+            Metadata.Key<String> key = Metadata.Key.of("api_key", Metadata.ASCII_STRING_MARSHALLER);
+            headers.put(key, "schoolzone123");
+        return MetadataUtils.newAttachHeadersInterceptor(headers);
+    }
+
 }

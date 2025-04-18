@@ -3,10 +3,6 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
  */
 package schoolzone.gui;
-
-import schoolzone.gui.TrafficSignalServiceGUI;
-import schoolzone.gui.PedestrianCrossingServiceGUI;
-import schoolzone.gui.SpeedEnforcementServiceGUI;
 /**
  *
  * @author ardau
@@ -87,9 +83,9 @@ public class MainServiceLauncher extends javax.swing.JFrame {
                 .addComponent(btnTrafficService)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(btnPedestrianService)
-                .addGap(18, 18, 18)
+                .addGap(12, 12, 12)
                 .addComponent(btnSpeedService)
-                .addContainerGap(126, Short.MAX_VALUE))
+                .addContainerGap(132, Short.MAX_VALUE))
         );
 
         pack();
@@ -126,22 +122,16 @@ public class MainServiceLauncher extends javax.swing.JFrame {
                     break;
                 }
             }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(MainServiceLauncher.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(MainServiceLauncher.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(MainServiceLauncher.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) {
             java.util.logging.Logger.getLogger(MainServiceLauncher.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
         //</editor-fold>
+        
+        //</editor-fold>
 
         /* Create and display the form */
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                new MainServiceLauncher().setVisible(true);
-            }
+        java.awt.EventQueue.invokeLater(() -> {
+            new MainServiceLauncher().setVisible(true);
         });
     }
 

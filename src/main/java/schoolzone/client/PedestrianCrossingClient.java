@@ -8,6 +8,11 @@ import java.util.Iterator;
 
 import java.util.Scanner;
 
+/**
+ *
+ * @author ardau
+ */
+
 public class PedestrianCrossingClient {
 
     public static void main(String[] args) throws InterruptedException {
